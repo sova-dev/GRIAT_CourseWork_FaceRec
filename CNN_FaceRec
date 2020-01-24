@@ -1,0 +1,116 @@
+# import tensorflow.compat.v1 as tf
+# tf.disable_v2_behavior()
+# import matplotlib.pyplot as plt
+from sklearn.datasets import fetch_lfw_people
+#Load the data
+import tensorflow
+from numpy import asarray
+import numpy as np
+from keras.models import Model
+from PIL import Image
+
+from keras_vggface.vggface import VGGFace
+from keras_vggface.utils import preprocess_input
+
+
+
+#build the model # we need to create
+# the architecture using Sequential()
+from keras.models import Sequential
+from keras.layers import ZeroPadding2D, Flatten, Convolution2D, MaxPooling2D, Dropout, Activation
+
+model = Sequential()
+model.add(ZeroPadding2D((1, 1), input_shape=(224, 224, 3)))
+model.add(Convolution2D(64, (3, 3), activation='relu'))
+model.add(ZeroPadding2D((1, 1)))
+model.add(Convolution2D(64, (3, 3), activation='relu'))
+model.add(MaxPooling2D((2, 2), strides=(2, 2)))
+
+model.add(ZeroPadding2D((1, 1)))
+model.add(Convolution2D(128, (3, 3), activation='relu'))
+model.add(ZeroPadding2D((1, 1)))
+model.add(Convolution2D(128, (3, 3), activation='relu'))
+model.add(MaxPooling2D((2, 2), strides=(2, 2)))
+
+model.add(ZeroPadding2D((1, 1)))
+model.add(Convolution2D(256, (3, 3), activation='relu'))
+model.add(ZeroPadding2D((1, 1)))
+model.add(Convolution2D(256, (3, 3), activation='relu'))
+model.add(ZeroPadding2D((1, 1)))
+model.add(Convolution2D(256, (3, 3), activation='relu'))
+model.add(MaxPooling2D((2, 2), strides=(2, 2)))
+
+model.add(ZeroPadding2D((1, 1)))
+model.add(Convolution2D(512, (3, 3), activation='relu'))
+model.add(ZeroPadding2D((1, 1)))
+model.add(Convolution2D(512, (3, 3), activation='relu'))
+model.add(ZeroPadding2D((1, 1)))
+model.add(Convolution2D(512, (3, 3), activation='relu'))
+model.add(MaxPooling2D((2, 2), strides=(2, 2)))
+
+model.add(ZeroPadding2D((1, 1)))
+model.add(Convolution2D(512, (3, 3), activation='relu'))
+model.add(ZeroPadding2D((1, 1)))
+model.add(Convolution2D(512, (3, 3), activation='relu'))
+model.add(ZeroPadding2D((1, 1)))
+model.add(Convolution2D(512, (3, 3), activation='relu'))
+model.add(MaxPooling2D((2, 2), strides=(2, 2)))
+
+model.add(Convolution2D(4096, (7, 7), activation='relu'))
+model.add(Dropout(0.5))
+model.add(Convolution2D(4096, (1, 1), activation='relu'))
+model.add(Dropout(0.5))
+model.add(Convolution2D(2622, (1, 1)))
+model.add(Flatten())
+model.add(Activation('softmax'))
+
+from keras.models import model_from_json
+model.load_weights('C:/Users/User/vgg_face_weights.h5')
+
+vgg_face_descriptor = Model(inputs=model.layers[0].input,
+                            outputs=model.layers[-2].output)
+
+# Representation
+# we can represent images as 2622 dimensional vector as illustarted below.
+
+img1_representation = vgg_face_descriptor.predict(preprocess_input(vgg_face_descriptor, version=2)('1.jpg'))[0,:]
+img2_representation = vgg_face_descriptor.predict(preprocess_input(vgg_face_descriptor, version=2)('2.jpg'))[0,:]
+
+def preprocess_image(image_path):
+    img = np.load_img(image_path, target_size=(224, 224))
+    img = asarray.img_to_array(img)
+    img = np.expand_dims(img, axis=0)
+    img = preprocess_input(img)
+    return img
+
+#Vector Similarity
+def findCosineSimilarity(source_representation, test_representation):
+    a = np.matmul(np.transpose(source_representation), test_representation)
+    b = np.sum(np.multiply(source_representation, source_representation))
+    c = np.sum(np.multiply(test_representation, test_representation))
+    return 1 - (a / (np.sqrt(b) * np.sqrt(c)))
+
+
+def findEuclideanDistance(source_representation, test_representation):
+    euclidean_distance = source_representation - test_representation
+    euclidean_distance = np.sum(np.multiply(euclidean_distance, euclidean_distance))
+    euclidean_distance = np.sqrt(euclidean_distance)
+    return euclidean_distance
+
+#Recognizing images
+epsilon = 0.40  # cosine similarity
+
+
+# epsilon = 120 #euclidean distance
+
+def verifyFace(img1, img2):
+    img1_representation = vgg_face_descriptor.predict(preprocess_image(img1))[0, :]
+    img2_representation = vgg_face_descriptor.predict(preprocess_image(img2))[0, :]
+
+    cosine_similarity = findCosineSimilarity(img1_representation, img2_representation)
+    euclidean_distance = findEuclideanDistance(img1_representation, img2_representation)
+
+    if (cosine_similarity < epsilon):
+        print("verified... they are same person")
+    else:
+        print("unverified! they are not same person!")
